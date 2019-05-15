@@ -3,9 +3,50 @@ import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:background_fetch/background_fetch.dart';
 
 
-void main() => runApp(MyApp());
+
+/// This "Headless Task" is run when app is terminated.
+void backgroundFetchHeadlessTask() async {
+  print('[BackgroundFetch] Headless event received.');
+  SharedPreferences prefs = await SharedPreferences.getInstance();
+
+  int startTime;
+  int sT = prefs.getInt('startTime');
+  if (sT != null) {
+    startTime = sT;
+  }
+  else{
+    startTime=new DateTime.now().millisecond;
+  }
+
+
+  bool isRunning;
+  bool iR = prefs.getBool('isRunning');
+  if (iR != null) {
+    isRunning = iR;
+  }
+  else{
+    isRunning=false;
+  }
+
+
+  BackgroundFetch.finish();
+}
+
+
+void main() {
+  // Enable integration testing with the Flutter Driver extension.
+  // See https://flutter.io/testing/ for more info.
+  runApp(new MyApp());
+
+  // Register to receive BackgroundFetch events after app is terminated.
+  // Requires {stopOnTerminate: false, enableHeadless: true}
+  BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
+}
 
 class MyApp extends StatelessWidget {
   // This widget is the root of your application.
@@ -40,6 +81,9 @@ class stopwatch extends StatefulWidget {
 }
 
 class _stopwatchState extends State<stopwatch> {
+  int startTime;
+  bool isRunning;
+
   int actTimerSeconds=0;
   String actTimeMinutesSeconds="";
   Timer _timer;
@@ -50,7 +94,48 @@ class _stopwatchState extends State<stopwatch> {
 
   _stopwatchState(){
     setActTimeMinutesSeconds(); //for 00:00 at first
+
+
+    // Configure BackgroundFetch.
+    BackgroundFetch.configure(BackgroundFetchConfig(
+        minimumFetchInterval: 15,
+        stopOnTerminate: false,
+        enableHeadless: true,
+        forceReload: false
+    ), _onBackgroundFetch).then((int status) {
+      print('[BackgroundFetch] SUCCESS: $status');
+
+
+      actTimerSeconds=startTime=new DateTime.now().millisecond-startTime;
+
+      setState(() {
+        setActTimeMinutesSeconds();
+      });
+
+    }).catchError((Exception e) {
+      print('[BackgroundFetch] ERROR: $e');
+    });
+
   }
+
+  void _onBackgroundFetch() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    // This is the fetch-event callback.
+    print('[BackgroundFetch] Event received');
+    setState(() {
+
+    });
+
+    // Persist fetch events in SharedPreferences
+    prefs.setInt("startTime", startTime);
+    prefs.setBool("isRunning", isRunning);
+
+    // IMPORTANT:  You must signal completion of your fetch task or the OS can punish your app
+    // for taking too long in the background.
+    BackgroundFetch.finish();
+  }
+
   @override
   Widget build(BuildContext context) {
     return new Scaffold(
@@ -114,44 +199,40 @@ class _stopwatchState extends State<stopwatch> {
       _timer.cancel(); //stop timer if exist
     }
   }
-  void start(){
+  void start() async{
     startStopBtnText="Stop";
     startStopBtnColor=Colors.red;
     startTimer(); //start a new timer
   }
 
   void startTimer() async{
-      /*const oneSec = const Duration(seconds: 1);
+      const oneSec = const Duration(seconds: 1);
     _timer = new Timer.periodic(
         oneSec,
             (Timer timer) => setState(() {
                 actTimerSeconds++;
                 setActTimeMinutesSeconds();
           })
-
-    );*/
-      print(actTimeMinutesSeconds);
-      this.setState((){
-        actTimerSeconds++;
-        setActTimeMinutesSeconds();
-        actTimeMinutesSeconds;
-      });
-      this.setState((){
-        actTimerSeconds;
-        actTimeMinutesSeconds;
+    );
+      /*print(actTimeMinutesSeconds);
+      actTimerSeconds++;
+      setActTimeMinutesSeconds();
+      setState((){
+        actTimeMinutesSeconds=setActTimeMinutesSeconds();
       });
       sleep(const Duration(seconds:1));
-      startTimer();
+      startTimer();*/
   }
 
 
 
-  void setActTimeMinutesSeconds(){
+  String setActTimeMinutesSeconds(){
     int minutes=(actTimerSeconds/60).toInt();
     String minutesStirng=setFirst0(minutes);
     String secondsString=setFirst0(actTimerSeconds-(minutes*60));
 
     actTimeMinutesSeconds="$minutesStirng : $secondsString";
+    return actTimeMinutesSeconds;
   }
   String setFirst0(int number){
     if(number<10){
