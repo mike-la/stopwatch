@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
+import 'dart:io';
 
 
 void main() => runApp(MyApp());
@@ -120,7 +121,7 @@ class _stopwatchState extends State<stopwatch> {
   }
 
   void startTimer() async{
-    const oneSec = const Duration(seconds: 1);
+      /*const oneSec = const Duration(seconds: 1);
     _timer = new Timer.periodic(
         oneSec,
             (Timer timer) => setState(() {
@@ -128,7 +129,19 @@ class _stopwatchState extends State<stopwatch> {
                 setActTimeMinutesSeconds();
           })
 
-    );
+    );*/
+      print(actTimeMinutesSeconds);
+      this.setState((){
+        actTimerSeconds++;
+        setActTimeMinutesSeconds();
+        actTimeMinutesSeconds;
+      });
+      this.setState((){
+        actTimerSeconds;
+        actTimeMinutesSeconds;
+      });
+      sleep(const Duration(seconds:1));
+      startTimer();
   }
 
 
