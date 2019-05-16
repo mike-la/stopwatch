@@ -13,7 +13,7 @@ const IsRunning_KEY = "isRunning";
 const StopTime_KEY = "stopTime";
 
 /// This "Headless Task" is run when app is terminated.
-/*void backgroundFetchHeadlessTask() async {
+void backgroundFetchHeadlessTask() async {
   print('[BackgroundFetch] Headless event received.');
   SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -47,7 +47,7 @@ const StopTime_KEY = "stopTime";
   prefs.setBool(IsRunning_KEY, isRunning);
 
   BackgroundFetch.finish();
-} */
+}
 
 void main() {
   // Enable integration testing with the Flutter Driver extension.
@@ -56,7 +56,7 @@ void main() {
 
   // Register to receive BackgroundFetch events after app is terminated.
   // Requires {stopOnTerminate: false, enableHeadless: true}
-  //BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
+  BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
 }
 
 class MyApp extends StatelessWidget {
@@ -85,8 +85,7 @@ class stopwatch extends StatefulWidget {
 class _stopwatchState extends State<stopwatch> {
   int startTime;
   bool isRunning=false;
-  int stopTime; //sec, since 1970, when isRunning==false
-
+  int stopTime; //sec, since 1970, set, when stopButton clicked
   int actTimerSeconds;
   String actTimeMinutesSeconds = "";
   Timer _timer;
@@ -114,14 +113,22 @@ class _stopwatchState extends State<stopwatch> {
       actErrors += "after prefs \n";
     }); */
 
+    int actTime = new DateTime.now().millisecondsSinceEpoch;
+    actTime = (actTime / 1000).toInt();
     startTime = prefs.getInt(StartTime_KEY);
-    stopTime = prefs.getInt(StopTime_KEY);
+
+    int stopT = prefs.getInt(StopTime_KEY);
+    if (stopT != null) {
+      stopTime = stopT;
+    } else {
+      stopTime = actTime;
+    }
+
     /*setState(() {
       actErrors += "startTime: $startTime \n ";
     }); */
 
-    int actTime = new DateTime.now().millisecondsSinceEpoch;
-    actTime = (actTime / 1000).toInt();
+
    /* setState(() {
       actErrors += "actTime $actTime \n ";
     }); */
@@ -153,7 +160,6 @@ class _stopwatchState extends State<stopwatch> {
       else{
         actTimerSeconds = actTimerSeconds-(actTime-stopTime); //subtrac the time beetween last stop click and now
       }
-
     } else {
       startTime = actTime;
       actTimerSeconds = 0;
@@ -207,6 +213,7 @@ class _stopwatchState extends State<stopwatch> {
     });
 
 
+    prefs.setInt(StopTime_KEY, stopTime);
     prefs.setInt(StartTime_KEY, startTime);
     prefs.setBool(IsRunning_KEY, isRunning);
 
@@ -321,6 +328,7 @@ class _stopwatchState extends State<stopwatch> {
       startTimer(); //start a new timer
    // }
     isRunning=true;
+
   }
 
 
@@ -361,7 +369,10 @@ class _stopwatchState extends State<stopwatch> {
   void startTimer() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
 
-    prefs.setInt("startTime", startTime);
+    int actTime = new DateTime.now().millisecondsSinceEpoch;
+    actTime = (actTime / 1000).toInt();
+    startTime=actTime-actTimerSeconds;
+    prefs.setInt(StartTime_KEY, startTime);
     prefs.setBool(IsRunning_KEY, true);
 
     const oneSec = const Duration(seconds: 1);
