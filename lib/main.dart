@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
@@ -7,7 +8,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:background_fetch/background_fetch.dart';
 
-
+const StartTime_KEY = "startTime";
+const IsRunning_KEY = "isRunning";
+const StopTime_KEY = "stopTime";
 
 /// This "Headless Task" is run when app is terminated.
 void backgroundFetchHeadlessTask() async {
@@ -15,28 +18,26 @@ void backgroundFetchHeadlessTask() async {
   SharedPreferences prefs = await SharedPreferences.getInstance();
 
   int startTime;
-  int sT = prefs.getInt('startTime');
+  int sT = prefs.getInt(StartTime_KEY);
   if (sT != null) {
     startTime = sT;
+  } else {
+    startTime = new DateTime.now().millisecondsSinceEpoch;
+    startTime = (startTime / 1000).toInt();
   }
-  else{
-    startTime=new DateTime.now().millisecond;
-  }
-
+  prefs.setInt(StartTime_KEY, startTime);
 
   bool isRunning;
-  bool iR = prefs.getBool('isRunning');
+  bool iR = prefs.getBool(IsRunning_KEY);
   if (iR != null) {
     isRunning = iR;
+  } else {
+    isRunning = false;
   }
-  else{
-    isRunning=false;
-  }
-
+  prefs.setBool(IsRunning_KEY, isRunning);
 
   BackgroundFetch.finish();
 }
-
 
 void main() {
   // Enable integration testing with the Flutter Driver extension.
@@ -65,15 +66,6 @@ class MyApp extends StatelessWidget {
 class stopwatch extends StatefulWidget {
   stopwatch({Key key, this.title}) : super(key: key);
 
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
   final String title;
 
   @override
@@ -82,40 +74,110 @@ class stopwatch extends StatefulWidget {
 
 class _stopwatchState extends State<stopwatch> {
   int startTime;
-  bool isRunning;
+  bool isRunning=false;
+  int stopTime; //sec, since 1970, when isRunning==false
 
-  int actTimerSeconds=0;
-  String actTimeMinutesSeconds="";
+  int actTimerSeconds;
+  String actTimeMinutesSeconds = "";
   Timer _timer;
 
-  String startStopBtnText="Start";
-  ColorSwatch startStopBtnColor=Colors.green;
+  String startStopBtnText = "Start";
+  ColorSwatch startStopBtnColor = Colors.green;
 
+  String actErrors = ""; //only for debug
 
-  _stopwatchState(){
+  /*_stopwatchState() {
     setActTimeMinutesSeconds(); //for 00:00 at first
+  }*/
 
+  @override
+  void initState() {
+    super.initState();
+    initPlatformState();
+  }
 
-    // Configure BackgroundFetch.
-    BackgroundFetch.configure(BackgroundFetchConfig(
-        minimumFetchInterval: 15,
-        stopOnTerminate: false,
-        enableHeadless: true,
-        forceReload: false
-    ), _onBackgroundFetch).then((int status) {
-      print('[BackgroundFetch] SUCCESS: $status');
+  Future<void> initPlatformState() async {
+    //setActTimeMinutesSeconds(); //for 00:00 at first
+    // Load persisted fetch events from SharedPreferences
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    /*setState(() {
+      actErrors += "after prefs \n";
+    }); */
 
+    startTime = prefs.getInt(StartTime_KEY);
+    stopTime = prefs.getInt(StopTime_KEY);
+    /*setState(() {
+      actErrors += "startTime: $startTime \n ";
+    }); */
 
-      actTimerSeconds=startTime=new DateTime.now().millisecond-startTime;
+    int actTime = new DateTime.now().millisecondsSinceEpoch;
+    actTime = (actTime / 1000).toInt();
+   /* setState(() {
+      actErrors += "actTime $actTime \n ";
+    }); */
 
+    if (startTime != null) {
+
+      /*
+      setState(() {
+        actErrors += "inIF:_ $actTime | $startTime";
+      });
+      */
+
+      actTimerSeconds = actTime - startTime;
       setState(() {
         setActTimeMinutesSeconds();
       });
+      setState(() {
+        actErrors += "actTimerSeconds_ $actTimerSeconds \n";
+      });
+      isRunning = prefs.getBool(IsRunning_KEY);
+      if(isRunning){
+        startTimer(); //start Timer with actual values
+        startStopBtnText = "Stop";
+        startStopBtnColor = Colors.red;
+      }
+      else{
+        actTimerSeconds = actTimerSeconds-(actTime-stopTime); //subtrac the time beetween last stop click and now
+      }
 
+    } else {
+      startTime = actTime;
+      actTimerSeconds = 0;
+      isRunning=false; //when no seconds count, the timer cannot be started
+    }
+
+    setState(() {
+      actErrors += "vor Status, startTime: $startTime \n ";
+    });
+    // Optionally query the current BackgroundFetch status.
+    int status = await BackgroundFetch.status;
+
+    // Configure BackgroundFetch.
+    BackgroundFetch.configure(
+            BackgroundFetchConfig(
+                minimumFetchInterval: 15,
+                stopOnTerminate: false,
+                enableHeadless: true,
+                forceReload: false),
+            _onBackgroundFetch)
+        .then((int status) {
+      // Persist fetch events in SharedPreferences
+      print('[BackgroundFetch] SUCCESS: $status');
+      /*setState(() {
+        actErrors += "\n L156, $status";
+      }); */
     }).catchError((Exception e) {
       print('[BackgroundFetch] ERROR: $e');
+      setState(() {
+        actErrors += "\n L162 Error, $e";
+      });
     });
 
+    // If the widget was removed from the tree while the asynchronous platform
+    // message was in flight, we want to discard the reply rather than calling
+    // setState to update our non-existent appearance.
+    if (!mounted) return;
   }
 
   void _onBackgroundFetch() async {
@@ -124,12 +186,12 @@ class _stopwatchState extends State<stopwatch> {
     // This is the fetch-event callback.
     print('[BackgroundFetch] Event received');
     setState(() {
-
+      actErrors += "\n L142";
     });
 
-    // Persist fetch events in SharedPreferences
-    prefs.setInt("startTime", startTime);
-    prefs.setBool("isRunning", isRunning);
+
+    prefs.setInt(StartTime_KEY, startTime);
+    prefs.setBool(IsRunning_KEY, isRunning);
 
     // IMPORTANT:  You must signal completion of your fetch task or the OS can punish your app
     // for taking too long in the background.
@@ -143,78 +205,152 @@ class _stopwatchState extends State<stopwatch> {
         title: Text('Timer'),
       ),
       body: Center(
-      child: Container(
-        child: Column(
-          children: <Widget>[
-            SizedBox(
-                width: MediaQuery.of(context).size.width, //screen width
-                height: 100.0,
-                child:
-                RaisedButton(
-                  color: startStopBtnColor,
-                  onPressed: () {startStopButtonClicked();},
-                  child: Text(
-                      '$startStopBtnText',
-                      style: TextStyle(fontSize: 40)
-                  ),
-                )
-            ),
-
-            Container(
-              // color: Colors.blue,
-              width: MediaQuery.of(context).size.width, //screen width
-              height: 200.0,
-              child: FittedBox(
-                  fit: BoxFit.contain,
-                  child: Text(
-                    "$actTimeMinutesSeconds",
-                    textScaleFactor: 0.8,
-                    style: TextStyle(fontSize: 20.0, letterSpacing: 2.0, fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center,
-                  )
+        child: Container(
+          child: Column(
+            children: <Widget>[
+              SizedBox(
+                  width: MediaQuery.of(context).size.width, //screen width
+                  height: 100.0,
+                  child: RaisedButton(
+                    color: startStopBtnColor,
+                    onPressed: () {
+                      startStopButtonClicked();
+                    },
+                    child: Text('$startStopBtnText',
+                        style: TextStyle(fontSize: 40)),
+                  )),
+              RaisedButton(
+                onPressed: () {resetButtonClicked();},
+                child: Text(
+                    'reset',
+                    style: TextStyle(fontSize: 20)
+                ),
               ),
-            ),
-          ],
+              Container(
+                // color: Colors.blue,
+                width: MediaQuery.of(context).size.width, //screen width
+                height: 200.0,
+                child: FittedBox(
+                    fit: BoxFit.contain,
+                    child: Text(
+                      "$actTimerSeconds",
+                      textScaleFactor: 0.8,
+                      style: TextStyle(
+                          fontSize: 20.0,
+                          letterSpacing: 2.0,
+                          fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    )),
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
-  void startStopButtonClicked(){
-    this.setState((){
-      if(startStopBtnText=="Start"){
+  void startStopButtonClicked() {
+    this.setState(() {
+      if (!isRunning) {
         start();
         return; //jut to leave this function
-      }
-      else{
+      } else {
         stop();
       }
     });
   }
-  void stop(){
-    startStopBtnText="Start";
-    startStopBtnColor=Colors.green;
-    if(_timer !=null){
-      _timer.cancel(); //stop timer if exist
+
+  void stop() async{
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      actErrors += "stop pressed \n";
+    });
+
+    if(isRunning){
+      setState(() {
+        startStopBtnText = "Start";
+        startStopBtnColor = Colors.green;
+      });
+      if (_timer != null) {
+        _timer.cancel(); //stop timer if exist
+      }
+
+
+      prefs.setBool(IsRunning_KEY, false);
     }
-  }
-  void start() async{
-    startStopBtnText="Stop";
-    startStopBtnColor=Colors.red;
-    startTimer(); //start a new timer
+    isRunning=false;
+    int actTime = new DateTime.now().millisecondsSinceEpoch;
+    actTime = (actTime / 1000).toInt();
+    stopTime=actTime;
+    startTime=stopTime-actTimerSeconds;
+    prefs.setInt(StopTime_KEY, stopTime);
+    prefs.setInt(StartTime_KEY, startTime);
+
   }
 
-  void startTimer() async{
-      const oneSec = const Duration(seconds: 1);
+  void start() async {
+    setState(() {
+      actErrors += "Start pressed \n";
+    });
+
+    if(!isRunning) {
+      setState(() {
+        startStopBtnText = "Stop";
+        startStopBtnColor = Colors.red;
+      });
+      startTimer(); //start a new timer
+    }
+    isRunning=true;
+  }
+
+
+  void resetButtonClicked(){
+    showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        // return object of type Dialog
+        return AlertDialog(
+          title: new Text("Reset Timer"),
+          content: new Text("Do you really want to reset the  timer?\n"),
+          actions: <Widget>[
+            // usually buttons at the bottom of the dialog
+            new FlatButton(
+              child: new Text("Close"),
+              onPressed: () {
+                Navigator.of(context).pop(); //just close dialogwindow
+              },
+            ),
+            // usually buttons at the bottom of the dialog
+            new FlatButton(
+              child: new Text("reset"),
+              onPressed: () {
+                actTimerSeconds=0;
+                setState(() {
+                  setActTimeMinutesSeconds(); //so there stand 00:00 when start this page
+                });
+                stop();
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void startTimer() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+
+    prefs.setInt("startTime", startTime);
+    prefs.setBool(IsRunning_KEY, true);
+    const oneSec = const Duration(seconds: 1);
     _timer = new Timer.periodic(
         oneSec,
-            (Timer timer) => setState(() {
-                actTimerSeconds++;
-                setActTimeMinutesSeconds();
-          })
-    );
-      /*print(actTimeMinutesSeconds);
+        (Timer timer) => setState(() {
+              actTimerSeconds++;
+              setActTimeMinutesSeconds();
+            }));
+    /*print(actTimeMinutesSeconds);
       actTimerSeconds++;
       setActTimeMinutesSeconds();
       setState((){
@@ -224,23 +360,24 @@ class _stopwatchState extends State<stopwatch> {
       startTimer();*/
   }
 
+  String setActTimeMinutesSeconds() {
+    if (actTimerSeconds == Null) {
+      actTimerSeconds = -1;
+    }
 
+    int minutes = (actTimerSeconds / 60).toInt();
+    String minutesString = setFirst0(minutes);
+    String secondsString = setFirst0(actTimerSeconds - (minutes * 60));
 
-  String setActTimeMinutesSeconds(){
-    int minutes=(actTimerSeconds/60).toInt();
-    String minutesStirng=setFirst0(minutes);
-    String secondsString=setFirst0(actTimerSeconds-(minutes*60));
-
-    actTimeMinutesSeconds="$minutesStirng : $secondsString";
+    actTimeMinutesSeconds = "$minutesString : $secondsString";
     return actTimeMinutesSeconds;
   }
-  String setFirst0(int number){
-    if(number<10){
+
+  String setFirst0(int number) {
+    if (number < 10) {
       return "0$number";
-    }
-    else{
+    } else {
       return number.toString();
     }
   }
 }
-
