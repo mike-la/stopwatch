@@ -13,7 +13,7 @@ const IsRunning_KEY = "isRunning";
 const StopTime_KEY = "stopTime";
 
 /// This "Headless Task" is run when app is terminated.
-void backgroundFetchHeadlessTask() async {
+/*void backgroundFetchHeadlessTask() async {
   print('[BackgroundFetch] Headless event received.');
   SharedPreferences prefs = await SharedPreferences.getInstance();
 
@@ -47,7 +47,7 @@ void backgroundFetchHeadlessTask() async {
   prefs.setBool(IsRunning_KEY, isRunning);
 
   BackgroundFetch.finish();
-}
+} */
 
 void main() {
   // Enable integration testing with the Flutter Driver extension.
@@ -56,7 +56,7 @@ void main() {
 
   // Register to receive BackgroundFetch events after app is terminated.
   // Requires {stopOnTerminate: false, enableHeadless: true}
-  BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
+  //BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
 }
 
 class MyApp extends StatelessWidget {
@@ -146,6 +146,8 @@ class _stopwatchState extends State<stopwatch> {
         if (_timer != null) {
           _timer.cancel(); //stop timer if exist
         }
+        startStopBtnText = "Stop";
+        startStopBtnColor = Colors.red;
         startTimer(); //start Timer with actual values
       }
       else{
@@ -172,7 +174,7 @@ class _stopwatchState extends State<stopwatch> {
     BackgroundFetch.configure(
             BackgroundFetchConfig(
                 minimumFetchInterval: 15,
-                stopOnTerminate: false,
+                stopOnTerminate: true, //do nothing
                 enableHeadless: true,
                 forceReload: false),
             _onBackgroundFetch)
