@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
 import 'dart:ui';
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
-import 'dart:io';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:background_fetch/background_fetch.dart';
@@ -12,51 +10,12 @@ const StartTime_KEY = "startTime";
 const IsRunning_KEY = "isRunning";
 const StopTime_KEY = "stopTime";
 
-/// This "Headless Task" is run when app is terminated.
-/*void backgroundFetchHeadlessTask() async {
-  print('[BackgroundFetch] Headless event received.');
-  SharedPreferences prefs = await SharedPreferences.getInstance();
-
-  int startTime;
-  int sT = prefs.getInt(StartTime_KEY);
-  if (sT != null) {
-    startTime = sT;
-  } else {
-    startTime = new DateTime.now().millisecondsSinceEpoch;
-    startTime = (startTime / 1000).toInt();
-  }
-  prefs.setInt(StartTime_KEY, startTime);
-
-  int stopTime;
-  int stopT = prefs.getInt(StopTime_KEY);
-  if (stopT != null) {
-    stopTime = stopT;
-  } else {
-    stopTime = new DateTime.now().millisecondsSinceEpoch;
-    stopTime = (stopTime / 1000).toInt();
-  }
-  prefs.setInt(StopTime_KEY, stopTime);
-
-  bool isRunning;
-  bool iR = prefs.getBool(IsRunning_KEY);
-  if (iR != null) {
-    isRunning = iR;
-  } else {
-    isRunning = false;
-  }
-  prefs.setBool(IsRunning_KEY, isRunning);
-
-  BackgroundFetch.finish();
-}*/
 
 void main() {
   // Enable integration testing with the Flutter Driver extension.
   // See https://flutter.io/testing/ for more info.
   runApp(new MyApp());
 
-  // Register to receive BackgroundFetch events after app is terminated.
-  // Requires {stopOnTerminate: false, enableHeadless: true}
-  //BackgroundFetch.registerHeadlessTask(backgroundFetchHeadlessTask);
 }
 
 class MyApp extends StatelessWidget {
@@ -93,11 +52,6 @@ class _stopwatchState extends State<stopwatch> {
   String startStopBtnText = "Start";
   ColorSwatch startStopBtnColor = Colors.green;
 
-  String actErrors = ""; //only for debug
-
-  /*_stopwatchState() {
-    setActTimeMinutesSeconds(); //for 00:00 at first
-  }*/
 
   @override
   void initState() {
@@ -109,9 +63,6 @@ class _stopwatchState extends State<stopwatch> {
     setActTimeMinutesSeconds(); //for 00:00 at first
     // Load persisted fetch events from SharedPreferences
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    /*setState(() {
-      actErrors += "after prefs \n";
-    }); */
 
     int actTime = new DateTime.now().millisecondsSinceEpoch;
     actTime = (actTime / 1000).toInt();
@@ -124,30 +75,13 @@ class _stopwatchState extends State<stopwatch> {
       stopTime = actTime;
     }
 
-    /*setState(() {
-      actErrors += "startTime: $startTime \n ";
-    }); */
-
-
-   /* setState(() {
-      actErrors += "actTime $actTime \n ";
-    }); */
 
     if (startTime != null) {
-
-      /*
-      setState(() {
-        actErrors += "inIF:_ $actTime | $startTime";
-      });
-      */
-
       actTimerSeconds = actTime - startTime;
       setState(() {
         setActTimeMinutesSeconds();
       });
-      setState(() {
-        actErrors += "actTimerSeconds_ $actTimerSeconds \n";
-      });
+
       isRunning = prefs.getBool(IsRunning_KEY);
       if(isRunning){
         if (_timer != null) {
@@ -170,11 +104,6 @@ class _stopwatchState extends State<stopwatch> {
       setActTimeMinutesSeconds();
     });
 
-    setState(() {
-      actErrors += "vor Status, startTime: $startTime \n ";
-    });
-    // Optionally query the current BackgroundFetch status.
-    int status = await BackgroundFetch.status;
 
     // Configure BackgroundFetch.
     BackgroundFetch.configure(
@@ -187,14 +116,8 @@ class _stopwatchState extends State<stopwatch> {
         .then((int status) {
       // Persist fetch events in SharedPreferences
       print('[BackgroundFetch] SUCCESS: $status');
-      /*setState(() {
-        actErrors += "\n L156, $status";
-      }); */
     }).catchError((Exception e) {
       print('[BackgroundFetch] ERROR: $e');
-      setState(() {
-        actErrors += "\n L162 Error, $e";
-      });
     });
 
     // If the widget was removed from the tree while the asynchronous platform
@@ -205,13 +128,6 @@ class _stopwatchState extends State<stopwatch> {
 
   void _onBackgroundFetch() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-
-    // This is the fetch-event callback.
-    print('[BackgroundFetch] Event received');
-    setState(() {
-      actErrors += "\n L142";
-    });
-
 
     prefs.setInt(StopTime_KEY, stopTime);
     prefs.setInt(StartTime_KEY, startTime);
@@ -286,9 +202,6 @@ class _stopwatchState extends State<stopwatch> {
 
   void stop() async{
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      actErrors += "stop pressed \n";
-    });
 
     //if(isRunning){
       setState(() {
@@ -311,10 +224,6 @@ class _stopwatchState extends State<stopwatch> {
   }
 
   void start() async {
-    setState(() {
-      actErrors += "Start pressed \n";
-    });
-
     //if(!isRunning) {
       setState(() {
         startStopBtnText = "Stop";
@@ -328,9 +237,7 @@ class _stopwatchState extends State<stopwatch> {
       startTimer(); //start a new timer
    // }
     isRunning=true;
-
   }
-
 
   void resetButtonClicked(){
     showDialog<String>(
@@ -382,16 +289,10 @@ class _stopwatchState extends State<stopwatch> {
               actTimerSeconds++;
               setActTimeMinutesSeconds();
             }));
-    /*print(actTimeMinutesSeconds);
-      actTimerSeconds++;
-      setActTimeMinutesSeconds();
-      setState((){
-        actTimeMinutesSeconds=setActTimeMinutesSeconds();
-      });
-      sleep(const Duration(seconds:1));
-      startTimer();*/
   }
 
+
+  ///only for textual output
   void setActTimeMinutesSeconds() {
     if (actTimerSeconds == null) {
       actTimerSeconds = 0;
