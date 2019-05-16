@@ -27,6 +27,16 @@ void backgroundFetchHeadlessTask() async {
   }
   prefs.setInt(StartTime_KEY, startTime);
 
+  int stopTime;
+  int stopT = prefs.getInt(StopTime_KEY);
+  if (stopT != null) {
+    stopTime = stopT;
+  } else {
+    stopTime = new DateTime.now().millisecondsSinceEpoch;
+    stopTime = (stopTime / 1000).toInt();
+  }
+  prefs.setInt(StopTime_KEY, stopTime);
+
   bool isRunning;
   bool iR = prefs.getBool(IsRunning_KEY);
   if (iR != null) {
@@ -97,7 +107,7 @@ class _stopwatchState extends State<stopwatch> {
   }
 
   Future<void> initPlatformState() async {
-    //setActTimeMinutesSeconds(); //for 00:00 at first
+    setActTimeMinutesSeconds(); //for 00:00 at first
     // Load persisted fetch events from SharedPreferences
     SharedPreferences prefs = await SharedPreferences.getInstance();
     /*setState(() {
@@ -133,9 +143,10 @@ class _stopwatchState extends State<stopwatch> {
       });
       isRunning = prefs.getBool(IsRunning_KEY);
       if(isRunning){
+        if (_timer != null) {
+          _timer.cancel(); //stop timer if exist
+        }
         startTimer(); //start Timer with actual values
-        startStopBtnText = "Stop";
-        startStopBtnColor = Colors.red;
       }
       else{
         actTimerSeconds = actTimerSeconds-(actTime-stopTime); //subtrac the time beetween last stop click and now
@@ -146,6 +157,10 @@ class _stopwatchState extends State<stopwatch> {
       actTimerSeconds = 0;
       isRunning=false; //when no seconds count, the timer cannot be started
     }
+
+    setState(() {
+      setActTimeMinutesSeconds();
+    });
 
     setState(() {
       actErrors += "vor Status, startTime: $startTime \n ";
@@ -233,7 +248,7 @@ class _stopwatchState extends State<stopwatch> {
                 child: FittedBox(
                     fit: BoxFit.contain,
                     child: Text(
-                      "$actTimerSeconds",
+                      "$actTimeMinutesSeconds",
                       textScaleFactor: 0.8,
                       style: TextStyle(
                           fontSize: 20.0,
@@ -266,7 +281,7 @@ class _stopwatchState extends State<stopwatch> {
       actErrors += "stop pressed \n";
     });
 
-    if(isRunning){
+    //if(isRunning){
       setState(() {
         startStopBtnText = "Start";
         startStopBtnColor = Colors.green;
@@ -274,11 +289,9 @@ class _stopwatchState extends State<stopwatch> {
       if (_timer != null) {
         _timer.cancel(); //stop timer if exist
       }
-
-
-      prefs.setBool(IsRunning_KEY, false);
-    }
+   // }
     isRunning=false;
+    prefs.setBool(IsRunning_KEY, isRunning);
     int actTime = new DateTime.now().millisecondsSinceEpoch;
     actTime = (actTime / 1000).toInt();
     stopTime=actTime;
@@ -293,13 +306,18 @@ class _stopwatchState extends State<stopwatch> {
       actErrors += "Start pressed \n";
     });
 
-    if(!isRunning) {
+    //if(!isRunning) {
       setState(() {
         startStopBtnText = "Stop";
         startStopBtnColor = Colors.red;
       });
+      if(actTimerSeconds==0){
+        int actTime = new DateTime.now().millisecondsSinceEpoch;
+        actTime = (actTime / 1000).toInt();
+        startTime=actTime;
+      }
       startTimer(); //start a new timer
-    }
+   // }
     isRunning=true;
   }
 
@@ -343,6 +361,7 @@ class _stopwatchState extends State<stopwatch> {
 
     prefs.setInt("startTime", startTime);
     prefs.setBool(IsRunning_KEY, true);
+
     const oneSec = const Duration(seconds: 1);
     _timer = new Timer.periodic(
         oneSec,
@@ -360,9 +379,9 @@ class _stopwatchState extends State<stopwatch> {
       startTimer();*/
   }
 
-  String setActTimeMinutesSeconds() {
-    if (actTimerSeconds == Null) {
-      actTimerSeconds = -1;
+  void setActTimeMinutesSeconds() {
+    if (actTimerSeconds == null) {
+      actTimerSeconds = 0;
     }
 
     int minutes = (actTimerSeconds / 60).toInt();
@@ -370,7 +389,7 @@ class _stopwatchState extends State<stopwatch> {
     String secondsString = setFirst0(actTimerSeconds - (minutes * 60));
 
     actTimeMinutesSeconds = "$minutesString : $secondsString";
-    return actTimeMinutesSeconds;
+    //return actTimeMinutesSeconds;
   }
 
   String setFirst0(int number) {
